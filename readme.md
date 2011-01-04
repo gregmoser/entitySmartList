@@ -3,7 +3,8 @@ Setup
 
 1. The only file that you need for the SmartList to work is the "SmartList.cfc" file.  Everything else is for example purposes only
 2. This application in it's entirety can be run to view a working example of the Smart List 
-3. Read the documentation for usage. 
+3. Read the documentation for usage.
+4. View This Working Example here: http://demo.gregmoser.com/entitySmartList/
 
 
 Documentation
