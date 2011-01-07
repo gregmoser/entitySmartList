@@ -75,6 +75,15 @@
 		<br />
 		<br />
 		<br />
+		<hr />
+		<h2>Advanced Usage</h2>
+		<cfset SmartListTwo = createObject("component", "SmartList").init(entityName="Art") />
+		<cfset SmartListTwo.addSelect("artid", "id") />
+		<cfset SmartListTwo.addSelect("artname", "name") />
+		<cfset SmartListTwo.addFilter("artist_firstname", "Aiden") />
+		<cfset smtArray = SmartListTwo.getRecordsArray() />
+		
+		<cfdump var="#smtArray#" />
 	</cfoutput>
 	</body>
 </html>
