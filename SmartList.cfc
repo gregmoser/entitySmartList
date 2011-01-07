@@ -18,6 +18,7 @@ component displayname="Smart List" accessors="true" persistent="false" {
 	property name="entityName" type="string" hint="This is the base entity that the list is based on.";
 	property name="entityMetaData" type="struct" hint="This is the meta data of the base entity.";
 
+	property name="selects" type="struct" hint="This struct holds any selects that are to be used in creating the records array";
 	property name="filters" type="struct" hint="This struct holds any filters that are set on the entities properties";
 	property name="ranges" type="struct" hint="This struct holds any ranges set on any of the entities properties";
 	property name="orders" type="array" hint="This struct holds the display order specification based on property";
@@ -43,6 +44,7 @@ component displayname="Smart List" accessors="true" persistent="false" {
 
 	public any function init(struct rc, required string entityName) {
 		// Set defaults for the main properties
+		setSelects(structNew());
 		setFilters(structNew());
 		setRanges(structNew());
 		setOrders(arrayNew(1));
@@ -97,6 +99,17 @@ component displayname="Smart List" accessors="true" persistent="false" {
 	public numeric function getTotalPages() {
 		variables.totalPages = ceiling(getTotalEntities() / getEntityShow());
 		return variables.totalPages;
+	}
+	
+	public void function addSelect(required string rawProperty, required string aliase) {
+		var selectProperty = getValidHQLProperty(rawProperty=arguments.rawProperty);
+		if(selectProperty != "") {
+			if(structKeyExists(variables.selects, selectProperty)) {
+				variables.selects[selectProperty] = arguments.aliase;
+			} else {
+				structInsert(variables.selects, selectProperty, arguments.aliase);
+			}
+		}
 	}
 	
 	public void function addFilter(required string rawProperty, required string value) {
@@ -295,6 +308,10 @@ component displayname="Smart List" accessors="true" persistent="false" {
 		return variables.HQLWhereParams;
 	}
 	
+	public string function getHQLSelect () {
+		// TODO: Add HQL Select Generator
+	}
+	
 	public string function getHQLWhereOrder(boolean suppressWhere) {
 		var returnWhereOrder = "";
 		
@@ -456,15 +473,19 @@ component displayname="Smart List" accessors="true" persistent="false" {
 		setSearchTime(getTickCount()-searchStart);
 	}
 	
-	private void function fillFromDefaultHQL() {
+	private void function fillFromDefaultHQL(boolean returnEntities=true) {
 		var fillTimeStart = getTickCount();
-		var HQL = " from #getEntityName()# a#getEntityName()# #getHQLWhereOrder()#";
+		if(!returnEntities && structCount(variables.selects)) {
+			var HQL = "#getHQLSelect()# from #getEntityName()# a#getEntityName()# #getHQLWhereOrder()#";
+		} else  {
+			var HQL = " from #getEntityName()# a#getEntityName()# #getHQLWhereOrder()#";
+		}
 		setRecords(ormExecuteQuery(HQL, getHQLWhereParams(), false, {ignoreCase="true"}));
 		setFillTime(getTickCount() - fillTimeStart);
 	}
-
-	public array function getEntityArray(boolean refresh) {
-		if(!isDefined("variables.entityArray") || arrayLen(variables.entityArray) == 0 || (isDefined("arguments.refresh") && arguments.refresh == true)) {
+	
+	public array function getEntityArray(boolean refresh=false) {
+		if(!isDefined("variables.entityArray") || arrayLen(variables.entityArray) == 0 || arguments.refresh == true) {
 			if(!isDefined("variables.records") || arrayLen(variables.records) == 0){
 				fillFromDefaultHQL();
 			}
@@ -472,6 +493,16 @@ component displayname="Smart List" accessors="true" persistent="false" {
 			for(var i=getEntityStart(); i<=getEntityEnd(); i++) {
 				arrayAppend(variables.entityArray, variables.records[i]);
 			}
+		}
+		return variables.entityArray;
+	}
+	
+	public array function getRecordsArray(boolean refresh=false) {
+		if(!isDefined("variables.recordsArray") || arrayLen(variables.recordsArray) == 0 || arguments.refresh == true) {
+			if(!isDefined("variables.records") || arrayLen(variables.records) == 0){
+				fillFromDefaultHQL(false);
+			}
+			variables.entityArray = duplicate(variables.records);
 		}
 		return variables.entityArray;
 	}
