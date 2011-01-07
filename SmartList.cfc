@@ -309,7 +309,20 @@ component displayname="Smart List" accessors="true" persistent="false" {
 	}
 	
 	public string function getHQLSelect () {
-		// TODO: Add HQL Select Generator
+		var returnSelect = "";
+		var currentSelect = 0;
+		if(structCount(variables.selects)) {
+			returnSelect = "SELECT ";
+			for(select in variables.selects) {
+				currentSelect = currentSelect + 1;
+				returnSelect &= "#select# as '#variables.selects[select]#'";
+				if(currentSelect < structCount(variables.selects)) {
+					returnSelect &= ", ";
+				}
+			}
+		}
+		
+		return returnSelect;
 	}
 	
 	public string function getHQLWhereOrder(boolean suppressWhere) {
