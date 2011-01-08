@@ -313,7 +313,7 @@ component displayname="Smart List" accessors="true" persistent="false" {
 		var currentSelect = 0;
 		
 		if(structCount(variables.selects)) {
-			returnSelect = "SELECT ";
+			returnSelect = "SELECT new map(";
 			for(select in variables.selects) {
 				currentSelect = currentSelect + 1;
 				returnSelect &= "#select# as #variables.selects[select]#";
@@ -321,6 +321,7 @@ component displayname="Smart List" accessors="true" persistent="false" {
 					returnSelect &= ", ";
 				}
 			}
+			returnSelect &= ")";
 		}
 		
 		return returnSelect;

@@ -77,12 +77,12 @@
 		<br />
 		<hr />
 		<h2>Advanced Usage</h2>
-		<cfset SmartListTwo = createObject("component", "SmartList").init(entityName="Art") />
-		<cfset SmartListTwo.addSelect("artid", "id") />
+		<p>In addition to utilizing the smart list to return an array of entities within the pagin requirements, you can also use it programatically to generate an array of Structs based on "selects" that get added.  Below is cfdump of this usage which can be very usefull when creating things like select option lists ext.</p>
+		<cfset SmartListTwo = createObject("component", "SmartList").init(entityName="Artist") />
+		<cfset SmartListTwo.addSelect("art", "id") />
 		<cfset SmartListTwo.addSelect("artname", "name") />
 		<cfset SmartListTwo.addFilter("artist_firstname", "Aiden") />
 		<cfset smtArray = SmartListTwo.getRecordsArray() />
-		
 		<cfdump var="#smtArray#" />
 	</cfoutput>
 	</body>
