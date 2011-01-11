@@ -1,5 +1,7 @@
 /*
 	Copyright (c) 2010, Greg Moser
+	
+	Version: 0.2
 
 	Licensed under the Apache License, Version 2.0 (the "License");
 	you may not use this file except in compliance with the License.
@@ -34,7 +36,6 @@ component displayname="Smart List" accessors="true" persistent="false" {
 	property name="currentPage" type="numeric" hint="This is the current page that the smart list is displaying worth of entities";
 	property name="totalPages" type="numeric" hint="This is the total number of pages worth of entities";
 
-	property name="queryRecords" type="query" hint="This is the raw query records.  Either this is used or the entityRecords is uesed";
 	property name="entityRecords" type="array" hint="This is the raw array of records.  Either this is used or the queryRecords is used";
 	
 	property name="entityArray" type="array" hint="This is the completed array of entities after filter, range, order, keywords and paging.";	
@@ -56,7 +57,6 @@ component displayname="Smart List" accessors="true" persistent="false" {
 		setRecords(arrayNew(1));
 		setSearchTime(0);
 		
-		setQueryRecords(queryNew('empty'));
 		setEntityRecords(arrayNew(1));
 		
 		// Set entity name based on whatever
@@ -330,6 +330,8 @@ component displayname="Smart List" accessors="true" persistent="false" {
 	public string function getHQLWhereOrder(boolean suppressWhere) {
 		var returnWhereOrder = "";
 		
+		variables.HQLWhereParams = structNew();
+		
 		// Check to see if any Filters, Ranges or Keyword requirements exist.  If not, don't create a where
 		if(structCount(variables.Filters) || structCount(variables.Ranges) || (arrayLen(variables.Keywords) && structCount(variables.keywordProperties))) {
 			
@@ -429,25 +431,6 @@ component displayname="Smart List" accessors="true" persistent="false" {
 		return returnWhereOrder;
 	}
 
-	public void function setRecords(required any records) {
-		variables.records = arrayNew(1);
-		
-		if(isArray(arguments.records)) {
-			variables.records = arguments.records;
-		} else if (isQuery(arguments.records)) {
-			for(var i=1; i <= arguments.records.recordcount; i++) {
-				var entity = entityNew(getEntityName());
-				entity.set(arguments.records[i]);
-				arrayAppend(variables.records, entity);
-			}
-		}
-		
-		// Apply Search Score to Entites
-		if(arrayLen(variables.keywords)) {
-			applySearchScore();
-		}
-	}
-	
 	public void function applySearchScore(){
 		var searchStart = getTickCount();
 		var structSort = structNew();
@@ -488,9 +471,51 @@ component displayname="Smart List" accessors="true" persistent="false" {
 		setSearchTime(getTickCount()-searchStart);
 	}
 	
-	private void function fillFromDefaultHQL(boolean returnEntities=true) {
+	public void function setRecords(required any records) {
+		variables.records = arrayNew(1);
+		
+		if(isArray(arguments.records)) {
+			variables.records = arguments.records;
+		} else if (isQuery(arguments.records)) {
+			for(var i=1; i <= arguments.records.recordcount; i++) {
+				var entity = entityNew(getEntityName());
+				entity.set(arguments.records[i]);
+				arrayAppend(variables.records, entity);
+			}
+		}
+		
+		// Apply Search Score to Entites
+		if(arrayLen(variables.keywords)) {
+			applySearchScore();
+		}
+	}
+
+	public array function getAllRecords(boolean refresh=false) {
+		if(!isDefined("variables.allRecords") || arrayLen(variables.allRecords) == 0 || arguments.refresh == true) {
+			if(!isDefined("variables.records") || arrayLen(variables.records) == 0){
+				fillRecords();
+			}
+			variables.allRecords = duplicate(variables.records);
+		}
+		return variables.allRecords;
+	}
+	
+	public array function getPageRecords(boolean refresh=false) {
+		if(!isDefined("variables.pageRecords") || arrayLen(variables.pageRecords) == 0 || (isDefined("arguments.refresh") && arguments.refresh == true)) {
+			if(!isDefined("variables.pageRecords") || arrayLen(variables.pageRecords) == 0){
+				fillRecords();
+			}
+			variables.pageRecords = arrayNew(1);
+			for(var i=getEntityStart(); i<=getEntityEnd(); i++) {
+				arrayAppend(variables.pageRecords, variables.records[i]);
+			}
+		}
+		return variables.pageRecords;
+	}
+	
+	private void function fillRecords() {
 		var fillTimeStart = getTickCount();
-		if(!returnEntities && structCount(variables.selects)) {
+		if(structCount(variables.selects)) {
 			var HQL = "#getHQLSelect()# from #getEntityName()# a#getEntityName()# #getHQLWhereOrder()#";
 		} else  {
 			var HQL = " from #getEntityName()# a#getEntityName()# #getHQLWhereOrder()#";
@@ -500,26 +525,7 @@ component displayname="Smart List" accessors="true" persistent="false" {
 	}
 	
 	public array function getEntityArray(boolean refresh=false) {
-		if(!isDefined("variables.entityArray") || arrayLen(variables.entityArray) == 0 || arguments.refresh == true) {
-			if(!isDefined("variables.records") || arrayLen(variables.records) == 0){
-				fillFromDefaultHQL();
-			}
-			variables.entityArray = arrayNew(1);
-			for(var i=getEntityStart(); i<=getEntityEnd(); i++) {
-				arrayAppend(variables.entityArray, variables.records[i]);
-			}
-		}
-		return variables.entityArray;
+		// This method is Depreciated in version 0.2, use getPageRecords() or getAllRecords()
+		return getPageRecords(refresh=arguments.refresh);
 	}
-	
-	public array function getRecordsArray(boolean refresh=false) {
-		if(!isDefined("variables.recordsArray") || arrayLen(variables.recordsArray) == 0 || arguments.refresh == true) {
-			if(!isDefined("variables.records") || arrayLen(variables.records) == 0){
-				fillFromDefaultHQL(false);
-			}
-			variables.entityArray = duplicate(variables.records);
-		}
-		return variables.entityArray;
-	}
-	
 }

@@ -82,7 +82,7 @@
 		<cfset SmartListTwo.addSelect("art", "id") />
 		<cfset SmartListTwo.addSelect("artname", "name") />
 		<cfset SmartListTwo.addFilter("artist_firstname", "Aiden") />
-		<cfset smtArray = SmartListTwo.getRecordsArray() />
+		<cfset smtArray = SmartListTwo.getAllRecords() />
 		<cfdump var="#smtArray#" />
 	</cfoutput>
 	</body>
