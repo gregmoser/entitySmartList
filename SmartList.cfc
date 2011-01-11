@@ -1,7 +1,7 @@
 /*
 	Copyright (c) 2010, Greg Moser
 	
-	Version: 0.2
+	Version: 1.1
 
 	Licensed under the Apache License, Version 2.0 (the "License");
 	you may not use this file except in compliance with the License.
@@ -525,7 +525,7 @@ component displayname="Smart List" accessors="true" persistent="false" {
 	}
 	
 	public array function getEntityArray(boolean refresh=false) {
-		// This method is Depreciated in version 0.2, use getPageRecords() or getAllRecords()
+		// This method is Depreciated in version 1.1, use getPageRecords() or getAllRecords()
 		return getPageRecords(refresh=arguments.refresh);
 	}
 }
