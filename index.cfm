@@ -81,7 +81,7 @@
 		<cfset SmartListTwo = createObject("component", "SmartList").init(entityName="Art") />
 		<cfset SmartListTwo.addSelect("artid", "id") />
 		<cfset SmartListTwo.addSelect("artname", "name") />
-		<cfset SmartListTwo.addFilter("artis_firstname", "Aiden") />
+		<cfset SmartListTwo.addFilter("artist_firstname", "Aiden") />
 		<select>
 		<cfloop array="#SmartListTwo.getAllRecords()#" index="Art" >
 			<option value="#Art.ID#">#Art.Name#</option>
