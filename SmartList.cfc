@@ -488,7 +488,7 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 		variables.records = arrayNew(1);
 		
 		if(isArray(arguments.records)) {
-			if(arrayLen(variables.keywords)) {
+			if(arrayLen(variables.keywords) && structCount(keywordProperties)) {
 				variables.records = applySearchScore(arguments.records);
 			} else {
 				variables.records = arguments.records;
