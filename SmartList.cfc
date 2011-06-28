@@ -26,6 +26,7 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 	property name="orders" type="array" hint="This struct holds the display order specification based on property";
 	
 	property name="keywordProperties" type="struct" hint="This struct holds the properties that searches reference and their relative weight";
+	property name="searchScoreProperties" type="struct" hint="This struct holds the properties that searches reference and their relative weight";
 	property name="keywords" type="array" hint="This array holds all of the keywords that were searched for";
 
 	property name="hqlParams" type="struct";
@@ -175,30 +176,6 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 		return newEntityName;
 	}
 	
-	// This method is still in development and doesn't work yet.
-	/*
-	public string function joinEntity(required string parentEntityName, required string parentJoinKey, required string entityName, required string joinKey, string joinType="", boolean fetch=false) {
-		var entity = entityNew(arguments.entityName);
-		var newEntityName = arguments.entityName;
-		var newEntityMeta = getMetaData(entity);
-		var newEntityAlias = "a#lcase(newEntityName)#";
-		
-		addEntity(
-			entityName=newEntityName,
-			entityAlias=newEntityAlias,
-			entityFullName=newEntityMeta.fullName,
-			entityProperties=getPropertiesStructFromMetaArray(newEntityMeta.properties),
-			parentAlias=variables.entities[ arguments.parentEntityName ].entityAlias,
-			parentRelationship="",
-			parentRelatedProperty="",
-			fkColumn="",
-			joinType=arguments.joinType,
-			joinOn="#variables.entities[ arguments.parentEntityName ].entityAlias#.#arguments.parentJoinKey# = #newEntityAlias#.#arguments.joinKey#",
-			fetch=arguments.fetch
-		);
-	}
-	*/
-	
 	private void function addEntity(required string entityName, required string entityAlias, required string entityFullName, required struct entityProperties, string parentAlias="", string parentRelationship="",string parentRelatedProperty="", string fkColumn="", string joinType="") {
 		variables.entities[arguments.entityName] = duplicate(arguments);
 	}
@@ -260,7 +237,8 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 	}
 
 	public void function addKeywordProperty(required string propertyIdentifier, required numeric weight) {
-		variable.keywordProperties[getAliasedProperty(propertyIdentifier=arguments.propertyIdentifier)] = arguments.weight;
+		variables.keywordProperties[getAliasedProperty(propertyIdentifier=arguments.propertyIdentifier)] = arguments.weight;
+		variables.searchScoreProperties[arguments.propertyIdentifier] = arguments.weight;
 	}
 	
 	public void function applyData(required struct data) {
@@ -430,7 +408,7 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 				for(var ii=1; ii<=arrayLen(variables.Keywords); ii++) {
 					var paramID = "K#replace(keywordProperty, ".", "", "all")##ii#";
 					addHQLParam(paramID, "%#variables.Keywords[ii]#%");
-					hqlWhere &= " #keywordProperty# LIKE :#paramID# AND";
+					hqlWhere &= " #keywordProperty# LIKE :#paramID# OR";
 				}
 			}
 			hqlWhere = left(hqlWhere, len(hqlWhere)-3 ) & ")";
@@ -457,69 +435,75 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 		return "#getHQLSelect()##getHQLFrom()##getHQLWhere()##getHQLOrder()#";
 	}
 
-	/* This Needs To Be Refactored
-	public void function applySearchScore(){
+	public array function applySearchScore(required array records){
 		var searchStart = getTickCount();
 		var structSort = structNew();
 		var randomID = 0;
 		
-		for(var i=1; i <= arrayLen(variables.records); i++) {
+		// Loop Over each record
+		for(var i=1; i <= arrayLen(arguments.records); i++) {
 			var score = 0;
-			for(property in keywordProperties) {
-				var propertyArray = listToArray(property, ".");
-				var evalString = "variables.records[i]";
-				for(var pi=2; pi <= arrayLen(propertyArray); pi++) {
+			
+			// Loop over each keyword property to score
+			for(property in variables.searchScoreProperties) {
+				
+				var propertyArray = listToArray(property, "_");
+				
+				var evalString = "arguments.records[i]";
+				for(var pi=1; pi <= arrayLen(propertyArray); pi++) {
 					evalString &= ".get#propertyArray[pi]#()";
 				}
-				var data = evaluate("#evalString#");
-				for(var ki=1; ki <= arrayLen(variables.keywords); ki++) {
-					var findValue = FindNoCase(variables.keywords[ki], data, 0);
-					while(findValue > 0) {
-						var score = score + (len(variables.keywords[ki]) * variables.keywordProperties[property]);
-						findValue = FindNoCase(variables.keywords[ki],  data, findValue+1);
+	
+				var data = evaluate("#evalString#");	
+	
+				if(!isNull(data)) {
+					for(var ki=1; ki <= arrayLen(variables.keywords); ki++) {
+						var findValue = FindNoCase(variables.keywords[ki], data, 0);
+						while(findValue > 0) {
+							var score = score + (len(variables.keywords[ki]) * variables.searchScoreProperties[property]);
+							findValue = FindNoCase(variables.keywords[ki],  data, findValue+1);
+						}
 					}
 				}
 			}
-			variables.records[i].setSearchScore(score);
-			randomID = rand();
-			if(find(".", score)) {
-				randomID = right(randomID, len(randomID)-2);
-			}
-			structSort[ score & randomID ] = variables.records[i];
+			
+			structSort[ score & i ] = arguments.records[i];
 		}
 		var scoreArray = structKeyArray(structSort);
 		
 		arraySort(scoreArray, "numeric", "desc");
-		variables.records = arrayNew(1);
+		var sortedArray = arrayNew(1);
+		arrayResize(sortedArray, arrayLen(scoreArray));
+		
 		for(var i=1; i <= arrayLen(scoreArray); i++) {
-			arrayAppend(variables.records, structSort[scoreArray[i]]);
+			sortedArray[i] = structSort[scoreArray[i]];
 		}
 		
 		setSearchTime(getTickCount()-searchStart);
+		
+		return sortedArray;
 	}
-	*/
 	
 	public void function setRecords(required any records) {
 		variables.records = arrayNew(1);
 		
 		if(isArray(arguments.records)) {
-			variables.records = arguments.records;
+			if(arrayLen(variables.keywords)) {
+				variables.records = applySearchScore(arguments.records);
+			} else {
+				variables.records = arguments.records;
+			}
 		} else if (isQuery(arguments.records)) {
 			// TODO: add the ability to pass in a query.
 			throw("Passing in a query is a feature that hasn't been finished yet");
 		} else {
 			throw("You must either pass an array of records, or a query or records");
 		}
-		
-		// Apply Search Score to Entites
-		if(arrayLen(variables.keywords)) {
-			applySearchScore();
-		}
 	}
 	
 	public array function getRecords(boolean refresh=false) {
 		if( !structKeyExists(variables, "records") || arguments.refresh == true) {
-			variables.records = ormExecuteQuery(getHQL(), getHQLParams(), false, {ignoreCase="true"});
+			setRecords(ormExecuteQuery(getHQL(), getHQLParams(), false, {ignoreCase="true"}));
 		}
 		return variables.records;
 	}
@@ -654,5 +638,13 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 		}
 	
 		return left(modifiedURL, len(modifiedURL)-1);
+	}
+	
+	public boolean function isFilterApplied(required string filter,required string value){
+		var exists = false;
+		if(structKeyExists(url,"F#variables.dataKeyDelimiter##arguments.filter#") && listFindNoCase(url["F#variables.dataKeyDelimiter##arguments.filter#"],arguments.value,variables.valueDelimiter)){
+			exists = true;
+		}
+		return exists;
 	}
 }
