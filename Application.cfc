@@ -5,10 +5,8 @@ component {
 	this.ormSettings.dbcreate = "none";
 	
 	public void function onRequestStart() {
-		param name="url.reload" default="false";
-		if(url.reload){
-			ormReload();
-			writeDump("Reloaded");
+		if(structKeyExists(url, "reload")) {
+			applicationStop();
 		}
 	}
 	
