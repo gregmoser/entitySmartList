@@ -1,7 +1,7 @@
 /*
 	Copyright (c) 2010, Greg Moser
 	
-	Version: 1.1
+	Version: 1.2
 	Documentation: http://www.github.com/gregmoser/entitySmartList/wiki
 
 	Licensed under the Apache License, Version 2.0 (the "License");
@@ -81,6 +81,42 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 		}
 				
 		return this;
+	}
+	
+	public void function applyData(required struct data) {
+		var currentPage = 1;
+		
+		for(var i in arguments.data) {
+			if(left(i,2) == "F#variables.dataKeyDelimiter#") {
+				addFilter(propertyIdentifier=right(i, len(i)-2), value=arguments.data[i]);
+			} else if(left(i,2) == "R#variables.dataKeyDelimiter#") {
+				addRange(propertyIdentifier=right(i, len(i)-2), value=arguments.data[i]);
+			} else if(i == "OrderBy") {
+				for(var ii=1; ii <= listLen(arguments.data[i], variables.orderPropertyDelimiter); ii++ ) {
+					addOrder(orderStatement=listGetAt(arguments.data[i], ii, variables.orderPropertyDelimiter));
+				}
+			} else if(i == "P#variables.dataKeyDelimiter#Show") {
+				if(arguments.data[i] == "ALL") {
+					setPageRecordsShow(1000000000);
+				} else if (isNumeric(arguments.data[i])) {
+					setPageRecordsShow(arguments.data[i]);	
+				}
+			} else if(i == "P#variables.dataKeyDelimiter#Start" && isNumeric(arguments.data[i])) {
+				setPageRecordsStart(arguments.data[i]);
+			} else if(i == "P#variables.dataKeyDelimiter#Current" && isNumeric(arguments.data[i])) {
+				variables.currentPageDeclaration = arguments.data[i];
+			}
+		}
+		if(structKeyExists(arguments.data, "keyword")) {
+			arguments.data.keywords = arguments.data.keyword;
+		}
+		if(structKeyExists(arguments.data, "keywords")){
+			var KeywordList = Replace(arguments.data.Keyword," ",",","all");
+			KeywordList = Replace(KeywordList,"%20",",","all");
+			KeywordList = Replace(KeywordList,"+",",","all");
+			variables.Keywords = listToArray(KeywordList);
+		}
+		
 	}
 		
 	private void function confirmWhereGroup(required numeric whereGroup) {
@@ -241,40 +277,6 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 		variables.searchScoreProperties[arguments.propertyIdentifier] = arguments.weight;
 	}
 	
-	public void function applyData(required struct data) {
-		var currentPage = 1;
-		
-		for(var i in arguments.data) {
-			if(left(i,2) == "F#variables.dataKeyDelimiter#") {
-				addFilter(propertyIdentifier=right(i, len(i)-2), value=arguments.data[i]);
-			} else if(left(i,2) == "R#variables.dataKeyDelimiter#") {
-				addRange(propertyIdentifier=right(i, len(i)-2), value=arguments.data[i]);
-			} else if(i == "OrderBy") {
-				for(var ii=1; ii <= listLen(arguments.data[i], variables.orderPropertyDelimiter); ii++ ) {
-					addOrder(orderStatement=listGetAt(arguments.data[i], ii, variables.orderPropertyDelimiter));
-				}
-			} else if(i == "P#variables.dataKeyDelimiter#Show") {
-				if(arguments.data[i] == "ALL") {
-					setPageRecordsShow(1000000000);
-				} else if (isNumeric(arguments.data[i])) {
-					setPageRecordsShow(arguments.data[i]);	
-				}
-			} else if(i == "P#variables.dataKeyDelimiter#Start" && isNumeric(arguments.data[i])) {
-				setPageRecordsStart(arguments.data[i]);
-			} else if(i == "P#variables.dataKeyDelimiter#Current" && isNumeric(arguments.data[i])) {
-				variables.currentPageDeclaration = arguments.data[i];
-			}
-		}
-		if(structKeyExists(arguments.data, "keyword")){
-			var KeywordList = Replace(arguments.data.Keyword," ","^","all");
-			KeywordList = Replace(KeywordList,"%20","^","all");
-			KeywordList = Replace(KeywordList,"+","^","all");
-			for(var i=1; i <= listLen(KeywordList, "^"); i++) {
-				arrayAppend(variables.Keywords, listGetAt(KeywordList, i, "^"));
-			}
-		}
-	}
-	
 	public void function addHQLParam(required string paramName, required string paramValue) {
 		variables.hqlParams[ arguments.paramName ] = arguments.paramValue;
 	}
@@ -283,23 +285,27 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 		return duplicate(variables.hqlParams);
 	}
 
-	public string function getHQLSelect () {
+	public string function getHQLSelect (boolean countOnly=false) {
 		var hqlSelect = "";
 		
-		if(structCount(variables.selects)) {
-			hqlSelect = "SELECT new map(";
-			for(var select in variables.selects) {
-				hqlSelect &= " #select# as #variables.selects[select]#,";
-			}
-			hqlSelect = left(hqlSelect, len(hqlSelect)-1) & ")";
+		if(arguments.countOnly) {
+			hqlSelect &= "SELECT count(*)";
 		} else {
-			hqlSelect &= "SELECT DISTINCT #variables.entities[getBaseEntityName()].entityAlias#";
+			if(structCount(variables.selects)) {
+				hqlSelect = "SELECT new map(";
+				for(var select in variables.selects) {
+					hqlSelect &= " #select# as #variables.selects[select]#,";
+				}
+				hqlSelect = left(hqlSelect, len(hqlSelect)-1) & ")";
+			} else {
+				hqlSelect &= "SELECT DISTINCT #variables.entities[getBaseEntityName()].entityAlias#";	
+			}
 		}
 		
 		return hqlSelect;
 	}
 	
-	public string function getHQLFrom(boolean supressFrom=false) {
+	public string function getHQLFrom(boolean supressFrom=false, boolean allowFetch=true) {
 		var hqlFrom = "";
 		if(!arguments.supressFrom) {
 			hqlFrom &= " FROM";	
@@ -314,7 +320,7 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 				}
 				
 				var fetch = "";
-				if(variables.entities[i].fetch) {
+				if(variables.entities[i].fetch && arguments.allowFetch) {
 					fetch = "fetch";
 				}
 				
@@ -473,15 +479,28 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 		
 		arraySort(scoreArray, "numeric", "desc");
 		var sortedArray = arrayNew(1);
-		arrayResize(sortedArray, arrayLen(scoreArray));
 		
-		for(var i=1; i <= arrayLen(scoreArray); i++) {
-			sortedArray[i] = structSort[scoreArray[i]];
+		if(arrayLen(scoreArray)) {
+			arrayResize(sortedArray, arrayLen(scoreArray));
+			
+			for(var i=1; i <= arrayLen(scoreArray); i++) {
+				sortedArray[i] = structSort[scoreArray[i]];
+			}	
 		}
 		
 		setSearchTime(getTickCount()-searchStart);
 		
 		return sortedArray;
+	}
+	
+	public numeric function getRecordsCount() {
+		if(!structKeyExists(variables,"records")) {
+			var HQL = "#getHQLSelect(countOnly=true)##getHQLFrom(allowFetch=false)##getHQLWhere()#";
+			var recordCount = ormExecuteQuery(HQL, getHQLParams(), false, {ignoreCase="true"});
+			return recordCount[1];
+		} else {
+			return arrayLen(getRecords());	
+		}
 	}
 	
 	public void function setRecords(required any records) {
@@ -508,18 +527,22 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 		return variables.records;
 	}
 	
-	public numeric function getRecordsCount() {
-		return arrayLen(getRecords());
-	}
 	
 	// Paging Methods
 	public array function getPageRecords(boolean refresh=false) {
 		if( !structKeyExists(variables, "pageRecords")) {
-			var records = getRecords(arguments.refresh);
-			variables.pageRecords = arrayNew(1);
-			for(var i=getPageRecordsStart(); i<=getPageRecordsEnd(); i++) {
-				arrayAppend(variables.pageRecords, records[i]);
+			// If there is search criteria then we need to get all of the records and loop over them to create a subset
+			if(arrayLen(variables.keywords) && structCount(keywordProperties)) {
+				var records = getRecords(arguments.refresh);
+				variables.pageRecords = arrayNew(1);
+				for(var i=getPageRecordsStart(); i<=getPageRecordsEnd(); i++) {
+					arrayAppend(variables.pageRecords, records[i]);
+				}
+			// If no search criteria then we can speed up the process by setting the pageRecords using ormExecuteQuery with offset & maxRecords
+			} else {
+				variables.pageRecords = ormExecuteQuery(getHQL(), getHQLParams(), false, {offset=getPageRecordsStart()-1, maxresults=getPageRecordsShow(), ignoreCase="true"});
 			}
+			
 		}
 		return variables.pageRecords;
 	}
@@ -528,6 +551,7 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 		if(variables.currentPageDeclaration > 1) {
 			variables.pageRecordsStart = ((variables.currentPageDeclaration-1)*getPageRecordsShow()) + 1;
 		}
+
 		return variables.pageRecordsStart;
 	}
 	
