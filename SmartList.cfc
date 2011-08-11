@@ -111,7 +111,7 @@ component displayname="Smart List" accessors="true" persistent="false" output="f
 			arguments.data.keywords = arguments.data.keyword;
 		}
 		if(structKeyExists(arguments.data, "keywords")){
-			var KeywordList = Replace(arguments.data.Keyword," ",",","all");
+			var KeywordList = Replace(arguments.data.Keywords," ",",","all");
 			KeywordList = Replace(KeywordList,"%20",",","all");
 			KeywordList = Replace(KeywordList,"+",",","all");
 			variables.Keywords = listToArray(KeywordList);
